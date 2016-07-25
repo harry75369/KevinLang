@@ -1,0 +1,14 @@
+gender,city,product,year,sale,cost,discount
+F,hangzhou,CD,2001,1060,244,0.8
+M,hangzhou,CD,2001,5467,545,0.75
+F,hangzhou,mp4,2001,1040,322,0.9
+M,hangzhou,mp4,2001,3245,446,0.8
+F,hangzhou,CD,2002,1360,541,0.7
+M,hangzhou,CD,2003,6544,321,0.95
+F,shanghai,CD,2001,1807,655,0.75
+F,shanghai,CD,2003,5321,741,0.7
+M,shanghai,CD,2002,1437,336,0.85
+F,shanghai,mp4,2001,3218,437,0.8
+M,shanghai,mp4,2001,2543,872,0.6
+M,beijing,mp4,2001,5439,246,0.9
+F,beijing,CD,2002,3211,541,0.8
