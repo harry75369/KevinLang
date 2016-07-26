@@ -5,20 +5,20 @@ import Text.Megaparsec.String
 import qualified Text.Megaparsec.Lexer as L
 import Data.Scientific
 
-type Header = [String]
-type Record = [Val]
-data Val = S String | N Scientific | Empty deriving (Show)
+type CsvHeader = [String]
+type CsvRecord = [CsvVal]
+data CsvVal = S String | N Scientific | Empty deriving (Show)
 
-csvParser :: Parser (Header, [Record])
+csvParser :: Parser (CsvHeader, [CsvRecord])
 csvParser = do
   header <- csvHeader <* eol
   records <- sepBy csvRecord eol
   eof >> return (header, records)
 
-csvHeader :: Parser Header
+csvHeader :: Parser CsvHeader
 csvHeader = sepBy stringVal csvDelimiter
 
-csvRecord :: Parser Record
+csvRecord :: Parser CsvRecord
 csvRecord = flip sepBy csvDelimiter $
       try (N <$> numberVal)
   <|> try (S <$> stringVal)
