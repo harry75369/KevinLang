@@ -10,14 +10,27 @@ import qualified Data.HashMap.Strict as M
 data DataFrame = DataFrame Indices [Field]
 type Index   = Int
 type Indices = [Index]
-type Field  = (String, FieldTraits, [(Index, DataValue)])
+type FieldName = String
+type Field  = (FieldName, FieldTraits, [(Index, DataValue)])
 type FieldTraits = (DataType, DataRole, DataInterpretation)
 data DataType = Text | Number | Date | Time | DateTime | Geography deriving (Show, Eq)
 data DataRole = Dimension | Measure deriving (Show, Eq)
 data DataInterpretation = Discrete | Continuous deriving (Show, Eq)
 data DataValue = S String | N Scientific | Empty
 
+instance Eq DataValue where
+  (Data.DataFrame.S s0) == (Data.DataFrame.S s1) = s0 == s1
+  (Data.DataFrame.N n0) == (Data.DataFrame.N n1) = n0 == n1
+  Data.DataFrame.Empty == Data.DataFrame.Empty = True
+  _ == _ = False
+
+instance Ord DataValue where
+  compare (Data.DataFrame.S s0) (Data.DataFrame.S s1) = compare s0 s1
+  compare (Data.DataFrame.N n0) (Data.DataFrame.N n1) = compare n0 n1
+  compare _                     _                     = error "invalid data values for sorting"
+
 instance Show DataFrame where
+  show (DataFrame _       []    ) = "(EMPTY DATAFRAME)\n"
   show (DataFrame indices fields) = showLines $ header : records
     where
       traits = map (\(_,x,_) -> x) fields
@@ -31,7 +44,7 @@ instance Show DataFrame where
                then formatScientific Fixed (Just 0) n
                else show n
           Just Data.DataFrame.Empty -> "empty"
-          Nothing -> "empty"
+          Nothing -> ""
       showRecord i = (show i) : map (showVal i) (zip traits dicts)
       showLines ls = concat $ map (showLine widths) ls
         where
@@ -39,7 +52,7 @@ instance Show DataFrame where
           widths = map maximum $ map (map length) columns
           showLine (w:_)  (x:[]) = (space $ w - length x + 2) ++ x ++ "\n"
           showLine (w:ws) (x:xs) = (space $ w - length x + 2) ++ x ++ showLine ws xs
-          space n = take n $ iterate id ' '
+          space = flip replicate ' '
 
       header = "" : map (\(x,_,_) -> x) fields
       records = [showRecord i | i <- indices]
@@ -60,7 +73,7 @@ fromCsv (header, records) = DataFrame indices fields
     indices = [1..length records]
     fields = map (makeField indices) $ zip header $ transpose records
 
-makeField :: Indices -> (String, [CsvVal]) -> Field
+makeField :: Indices -> (FieldName, [CsvVal]) -> Field
 makeField indices (fieldName, vals) = (fieldName, traits, mappings)
   where
     isCsvString (CsvParser.S _) = True
