@@ -7,11 +7,12 @@ import Text.Megaparsec
 import Data.Scientific
 import qualified Data.HashMap.Strict as M
 
-data DataFrame = DataFrame Indices [Field]
-type Index   = Int
+data DataFrame = DataFrame Indices Groups [Field]
 type Indices = [Index]
-type FieldName = String
+type Index   = Int
+type Groups = ([FieldName],[Indices])
 type Field  = (FieldName, FieldTraits, [(Index, DataValue)])
+type FieldName = String
 type FieldTraits = (DataType, DataRole, DataInterpretation)
 data DataType = Text | Number | Date | Time | DateTime | Geography deriving (Show, Eq)
 data DataRole = Dimension | Measure deriving (Show, Eq)
@@ -30,8 +31,8 @@ instance Ord DataValue where
   compare _                     _                     = error "invalid data values for sorting"
 
 instance Show DataFrame where
-  show (DataFrame _       []    ) = "(EMPTY DATAFRAME)\n"
-  show (DataFrame indices fields) = showLines $ header : records
+  show (DataFrame _       _ []    ) = "(EMPTY DATAFRAME)\n"
+  show (DataFrame indices g fields) = (showLines $ header : records) ++ (showGroups g)
     where
       traits = map (\(_,x,_) -> x) fields
       dicts = map (\(_,_,x) -> M.fromList x) fields
@@ -53,6 +54,9 @@ instance Show DataFrame where
           showLine (w:_)  (x:[]) = (space $ w - length x + 2) ++ x ++ "\n"
           showLine (w:ws) (x:xs) = (space $ w - length x + 2) ++ x ++ showLine ws xs
           space = flip replicate ' '
+      showGroups (ns, gs)
+        | null ns || null gs = ""
+        | otherwise = unlines $ show ns : map show gs
 
       header = "" : map (\(x,_,_) -> x) fields
       records = [showRecord i | i <- indices]
@@ -67,8 +71,10 @@ fromCsvFile filePath = do
     -- Right r@(h, rs) -> print h >> mapM_ print rs >> return r
     Right r -> return r
 
+emptyGroups = ([],[])
+
 fromCsv :: (CsvHeader, [CsvRecord]) -> DataFrame
-fromCsv (header, records) = DataFrame indices fields
+fromCsv (header, records) = DataFrame indices emptyGroups fields
   where
     indices = [1..length records]
     fields = map (makeField indices) $ zip header $ transpose records
