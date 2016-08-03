@@ -15,7 +15,10 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Lib
+  exposed-modules:     Data.CsvParser
+                     , Data.DataFrame
+                     , Data.DataFrame.Aggregator
+                     , Data.DataFrame.Combinator
   build-depends:       base >= 4.7 && < 5
                      , scientific
                      , megaparsec >= 5.0

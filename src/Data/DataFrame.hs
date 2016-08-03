@@ -1,4 +1,18 @@
-module Data.DataFrame where
+module Data.DataFrame
+( DataFrame(..)
+, Indices
+, Index
+, Groups
+, Field
+, FieldName
+, FieldTraits
+, DataType(..)
+, DataRole(..)
+, DataInterpretation(..)
+, DataValue(..)
+, fromCsvFile
+, emptyGroups
+) where
 
 import CsvParser
 import Data.Char (isSpace)
