@@ -12,6 +12,7 @@ import qualified Data.HashMap.Strict as M
 import Data.DataFrame as DF
 import Data.Scientific
 import Data.List (sortBy, sortOn, transpose, groupBy)
+import Data.Maybe (fromJust)
 
 data SortOrder = Ascending | Descending
 
@@ -40,6 +41,10 @@ instance VaridicParam [String] where
       groups = groupOn snd $ sortOn snd $ merge $ map (\(_,_,m) -> m) fs
       g = (names, map (map fst) groups)
 
+instance {-# OVERLAPPABLE #-} VaridicParam a where
+  select _ _ = error "invalid field name"
+  groupby _ _ = error "invalid field name"
+
 class PolyParam a where
   filter :: FieldName -> (a -> Bool) -> DataFrame -> DataFrame
   aggregate :: ([a] -> a) -> FieldName -> DataFrame -> DataFrame
@@ -60,7 +65,7 @@ instance PolyParam String where
                   collect l _        = error "invalid type"
 
 instance PolyParam Double where
-  filter fieldName pred df = filter' fieldName pred' df
+  filter fieldName pred = filter' fieldName pred'
     where
       pred' dict i = case M.lookup i dict of
                   Just (DF.N s) -> pred (toRealFloat s)
@@ -73,6 +78,55 @@ instance PolyParam Double where
             where vals' = foldl collect [] vals
                   collect l (DF.N x) = (toRealFloat x) : l
                   collect l _        = error "invalid type"
+
+instance PolyParam Float where
+  filter fieldName pred = filter' fieldName pred'
+    where
+      pred' dict i = case M.lookup i dict of
+                  Just (DF.N s) -> pred (toRealFloat s)
+                  _ -> False
+  aggregate op = aggregate' (liftOp op)
+    where
+      liftOp op = op'
+        where
+          op' vals = DF.N . fromFloatDigits $ op vals'
+            where vals' = foldl collect [] vals
+                  collect l (DF.N x) = (toRealFloat x) : l
+                  collect l _        = error "invalid type"
+
+instance PolyParam Int where
+  filter fieldName pred = filter' fieldName pred'
+    where
+      pred' dict i = case M.lookup i dict of
+                  Just (DF.N s) -> pred (fromJust . toBoundedInteger $ s)
+                  _ -> False
+  aggregate op = aggregate' (liftOp op)
+    where
+      liftOp op = op'
+        where
+          op' vals = DF.N . fromInteger . toInteger $ op vals'
+            where vals' = foldl collect [] vals
+                  collect l (DF.N x) = (fromJust . toBoundedInteger $ x) : l
+                  collect l _        = error "invalid type"
+
+instance PolyParam Word where
+  filter fieldName pred = filter' fieldName pred'
+    where
+      pred' dict i = case M.lookup i dict of
+                  Just (DF.N s) -> pred (fromJust . toBoundedInteger $ s)
+                  _ -> False
+  aggregate op = aggregate' (liftOp op)
+    where
+      liftOp op = op'
+        where
+          op' vals = DF.N . fromInteger . toInteger $ op vals'
+            where vals' = foldl collect [] vals
+                  collect l (DF.N x) = (fromJust . toBoundedInteger $ x) : l
+                  collect l _        = error "invalid type"
+
+--instance {-# OVERLAPPABLE #-} PolyParam a where
+--  filter _ _ _ = error "unsupported type"
+--  aggregate _ _ _ = error "unsupported type"
 
 filter' fieldName pred' df@(DataFrame indices _ fs) = DataFrame indices' DF.emptyGroups fs
   where
