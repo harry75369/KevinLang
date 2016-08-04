@@ -94,11 +94,9 @@ instance PolyParam Word where
   filter = filterInts
   aggregate = aggregateInts
 
--- TODO: figure out why polymorphism on functions won't work, while
---       the same works on values
---instance {-# OVERLAPPABLE #-} PolyParam a where
---  filter _ _ _ = error "unsupported type"
---  aggregate _ _ _ = error "unsupported type"
+instance {-# OVERLAPPABLE #-} PolyParam a where
+  filter _ _ _ = error "unsupported type"
+  aggregate _ _ _ = error "unsupported type"
 
 filterReals fieldName pred = filter' fieldName pred'
   where

@@ -1,5 +1,11 @@
 module Data.DataFrame.Aggregator where
 
+import Prelude hiding (sum)
+import qualified Prelude as P
+
+sum :: (RealFloat a) => [a] -> a
+sum = P.sum
+
 mean :: (RealFloat a) => [a] -> a
 mean l = sum l / (fromIntegral . length $ l)
 
