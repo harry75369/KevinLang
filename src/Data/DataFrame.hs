@@ -6,12 +6,16 @@ module Data.DataFrame
 , Field
 , FieldName
 , FieldTraits
+, FieldMapping
 , DataType(..)
 , DataRole(..)
 , DataInterpretation(..)
 , DataValue(..)
 , fromCsvFile
 , emptyGroups
+, getFieldName
+, getFieldTraits
+, getFieldMapping
 ) where
 
 import CsvParser
@@ -24,10 +28,11 @@ import qualified Data.HashMap.Strict as M
 data DataFrame = DataFrame Indices Groups [Field]
 type Indices = [Index]
 type Index   = Int
-type Groups = ([FieldName],[Indices])
-type Field  = (FieldName, FieldTraits, [(Index, DataValue)])
+type Groups = ([FieldName], [Indices])
+type Field  = (FieldName, FieldTraits, FieldMapping)
 type FieldName = String
 type FieldTraits = (DataType, DataRole, DataInterpretation)
+type FieldMapping = [(Index, DataValue)]
 data DataType = Text | Number | Date | Time | DateTime | Geography deriving (Show, Eq)
 data DataRole = Dimension | Measure deriving (Show, Eq)
 data DataInterpretation = Discrete | Continuous deriving (Show, Eq)
@@ -130,4 +135,13 @@ makeField indices (fieldName, vals) = (fieldName, traits, mappings)
       where convert (CsvParser.S s) = Data.DataFrame.S s
             convert (CsvParser.N n) = Data.DataFrame.N n
             convert CsvParser.Empty = Data.DataFrame.Empty
+
+getFieldName :: Field -> FieldName
+getFieldName (fieldName,_,_) = fieldName
+
+getFieldTraits :: Field -> FieldTraits
+getFieldTraits (_,fieldTraits,_) = fieldTraits
+
+getFieldMapping :: Field -> FieldMapping
+getFieldMapping (_,_,fieldMapping) = fieldMapping
 
