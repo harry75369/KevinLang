@@ -67,6 +67,7 @@ instance PolyParam String where
     where
       pred' dict i = case M.lookup i dict of
                   Just (DF.S s) -> pred s
+                  Just (DF.N n) -> error "inconsistent type"
                   _ -> False
   aggregate op = aggregate' (liftOp op)
     where
@@ -102,7 +103,8 @@ instance PolyParam Word where
 filterReals fieldName pred = filter' fieldName pred'
   where
     pred' dict i = case M.lookup i dict of
-                     Just (DF.N s) -> pred (toRealFloat s)
+                     Just (DF.N n) -> pred (toRealFloat n)
+                     Just (DF.S s) -> error "inconsistent type"
                      _ -> False
 
 aggregateReals op = aggregate' (liftOp op)
@@ -117,7 +119,8 @@ aggregateReals op = aggregate' (liftOp op)
 filterInts fieldName pred = filter' fieldName pred'
   where
     pred' dict i = case M.lookup i dict of
-                     Just (DF.N s) -> pred (fromJust . toBoundedInteger $ s)
+                     Just (DF.N n) -> pred (fromJust . toBoundedInteger $ n)
+                     Just (DF.S s) -> error "inconsistent type"
                      _ -> False
 
 aggregateInts op = aggregate' (liftOp op)
