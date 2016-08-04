@@ -16,8 +16,8 @@ module Data.DataFrame.Combinator
 , tail
 ) where
 
-import Prelude hiding (take, head, init, last, tail)
 import qualified Prelude as P
+import Prelude hiding (take, head, init, last, tail, length, filter)
 import qualified Data.HashMap.Strict as M
 import Data.DataFrame as DF
 import Data.Scientific
@@ -77,72 +77,57 @@ instance PolyParam String where
                   collect l (DF.S x) = x : l
                   collect l _        = error "invalid type"
 
--- TODO: merge code duplications with Template Haskell
 instance PolyParam Double where
-  filter fieldName pred = filter' fieldName pred'
-    where
-      pred' dict i = case M.lookup i dict of
-                  Just (DF.N s) -> pred (toRealFloat s)
-                  _ -> False
-  aggregate op = aggregate' (liftOp op)
-    where
-      liftOp op = op'
-        where
-          op' vals = DF.N . fromFloatDigits $ op vals'
-            where vals' = foldl collect [] vals
-                  collect l (DF.N x) = (toRealFloat x) : l
-                  collect l _        = error "invalid type"
+  filter = filterReals
+  aggregate = aggregateReals
 
 instance PolyParam Float where
-  filter fieldName pred = filter' fieldName pred'
-    where
-      pred' dict i = case M.lookup i dict of
-                  Just (DF.N s) -> pred (toRealFloat s)
-                  _ -> False
-  aggregate op = aggregate' (liftOp op)
-    where
-      liftOp op = op'
-        where
-          op' vals = DF.N . fromFloatDigits $ op vals'
-            where vals' = foldl collect [] vals
-                  collect l (DF.N x) = (toRealFloat x) : l
-                  collect l _        = error "invalid type"
+  filter = filterReals
+  aggregate = aggregateReals
 
 instance PolyParam Int where
-  filter fieldName pred = filter' fieldName pred'
-    where
-      pred' dict i = case M.lookup i dict of
-                  Just (DF.N s) -> pred (fromJust . toBoundedInteger $ s)
-                  _ -> False
-  aggregate op = aggregate' (liftOp op)
-    where
-      liftOp op = op'
-        where
-          op' vals = DF.N . fromInteger . toInteger $ op vals'
-            where vals' = foldl collect [] vals
-                  collect l (DF.N x) = (fromJust . toBoundedInteger $ x) : l
-                  collect l _        = error "invalid type"
+  filter = filterInts
+  aggregate = aggregateInts
 
 instance PolyParam Word where
-  filter fieldName pred = filter' fieldName pred'
-    where
-      pred' dict i = case M.lookup i dict of
-                  Just (DF.N s) -> pred (fromJust . toBoundedInteger $ s)
-                  _ -> False
-  aggregate op = aggregate' (liftOp op)
-    where
-      liftOp op = op'
-        where
-          op' vals = DF.N . fromInteger . toInteger $ op vals'
-            where vals' = foldl collect [] vals
-                  collect l (DF.N x) = (fromJust . toBoundedInteger $ x) : l
-                  collect l _        = error "invalid type"
+  filter = filterInts
+  aggregate = aggregateInts
 
 -- TODO: figure out why polymorphism on functions won't work, while
 --       the same works on values
 --instance {-# OVERLAPPABLE #-} PolyParam a where
 --  filter _ _ _ = error "unsupported type"
 --  aggregate _ _ _ = error "unsupported type"
+
+filterReals fieldName pred = filter' fieldName pred'
+  where
+    pred' dict i = case M.lookup i dict of
+                     Just (DF.N s) -> pred (toRealFloat s)
+                     _ -> False
+
+aggregateReals op = aggregate' (liftOp op)
+  where
+    liftOp op = op'
+      where
+        op' vals = DF.N . fromFloatDigits $ op vals'
+          where vals' = foldl collect [] vals
+                collect l (DF.N x) = (toRealFloat x) : l
+                collect l _        = error "invalid type"
+
+filterInts fieldName pred = filter' fieldName pred'
+  where
+    pred' dict i = case M.lookup i dict of
+                     Just (DF.N s) -> pred (fromJust . toBoundedInteger $ s)
+                     _ -> False
+
+aggregateInts op = aggregate' (liftOp op)
+  where
+    liftOp op = op'
+      where
+        op' vals = DF.N . fromInteger . toInteger $ op vals'
+          where vals' = foldl collect [] vals
+                collect l (DF.N x) = (fromJust . toBoundedInteger $ x) : l
+                collect l _        = error "invalid type"
 
 filter' fieldName pred' df@(DataFrame indices _ fs) = DataFrame indices' DF.emptyGroups fs
   where
@@ -157,7 +142,7 @@ aggregate' op' fieldName df@(DataFrame indices (ns,gs) fs) = DataFrame indices' 
     DataFrame _ _ [valField] = select fieldName df
     indices'
       | null gs = [1]
-      | otherwise = [1..length gs]
+      | otherwise = [1..P.length gs]
     mergeFieldRow op field@(fieldName, fieldTraits, mapping) = (fieldName, fieldTraits, mapping')
       where
         gs' = if null gs then [indices] else gs
