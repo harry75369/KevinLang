@@ -195,9 +195,23 @@ tail (DataFrame indices g fs) = DataFrame indices' g fs
   where indices' = P.tail indices
 
 melt :: [FieldName] -> [FieldName] -> DataFrame -> DataFrame
-melt ids vals df@(DataFrame indices _ fs) = DataFrame indices' DF.emptyGroups fs'
+melt ids vars df@(DataFrame indices _ _) = DataFrame indices' DF.emptyGroups fs'
   where
-    indices' = [1..(height df)*(P.length vals)]
-    -- TODO implement melt
-    fs' = []
+    idDf@(DataFrame _ _ idFields) = select ids df
+    varDf@(DataFrame _ _ varFields) = select vars df
+    hDf = height df
+    nIds = width idDf
+    nVars = width varDf
+    indices' = [1..hDf*nVars]
+    inIndices (i, _) = elem i indices
+    idFieldsVals = transpose $ concat $ replicate nVars $ transpose $ map (map snd) $ map (P.filter inIndices) $ map getFieldMapping idFields
+    varFieldNames = concat $ map (replicate hDf) $ map (DF.S . getFieldName) varFields
+    varFieldVals = concat $ map (map snd) $ map (P.filter inIndices) $ map getFieldMapping varFields
+    fs' = idFields' ++ [varNameField, varValField]
+      where
+        idFieldsMapping = if nVars > 0 && hDf > 0 then map (zip indices') idFieldsVals else replicate nIds []
+        idFields' = map replaceMapping $ zip idFieldsMapping idFields
+          where replaceMapping (mapping, (fn, ft, _)) = (fn, ft, mapping)
+        varNameField = ("variable", (Text, Dimension, Discrete), zip indices' varFieldNames)
+        varValField = ("value", (Number, Measure, Continuous), zip indices' varFieldVals)
 
