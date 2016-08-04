@@ -39,7 +39,6 @@ instance VaridicParam String where
 instance VaridicParam [String] where
   select names (DataFrame indices g fields) = DataFrame indices g fields'
     where fields' = P.filter (\(x,_,_) -> elem x names) fields
-  -- TODO: groupby according to actual indices, otherwise we are having bugs with row-mutating operations
   groupby names df@(DataFrame indices _ fields) = DataFrame indices g fields
     where
       DataFrame _ _ fs = select names df
@@ -52,7 +51,9 @@ instance VaridicParam [String] where
       groupOn selector = groupBy (\x y -> selector x == selector y)
       groups :: [FieldsMapping]
       groups = groupOn snd $ sortOn snd $ merge $ map getFieldMapping fs
-      g = (names, map (map fst) groups)
+      groups' = P.filter (not . null) $ map (P.filter inIndices) groups
+        where inIndices (i, _) = elem i indices
+      g = (names, map (map fst) groups')
 
 instance {-# OVERLAPPABLE #-} VaridicParam a where
   select _ _ = error "invalid field name"
