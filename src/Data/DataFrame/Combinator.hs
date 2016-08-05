@@ -38,7 +38,14 @@ instance VaridicParam FieldName where
 
 instance VaridicParam [FieldName] where
   select names (DataFrame indices g fields) = DataFrame indices g fields'
-    where fields' = P.filter (\(x,_,_) -> elem x names) fields
+    where
+      reorderFields fns fs = fs'
+        where
+          dict = M.fromList $ zip (map getFieldName fs) fs
+          fs' = foldr (\fn acc -> case M.lookup fn dict of
+                                    Just field -> field : acc
+                                    Nothing -> acc) [] fns
+      fields' = reorderFields names fields
   groupby names df@(DataFrame indices _ fields) = DataFrame indices g fields
     where
       DataFrame _ _ fs = select names df
@@ -59,6 +66,7 @@ instance VaridicParam [FieldName] where
 instance {-# OVERLAPPABLE #-} VaridicParam a where
   select _ _ = error "invalid field name"
   groupby _ _ = error "invalid field name"
+
 
 class VaridicParam2 a b where
   melt :: a -> b -> DataFrame -> DataFrame
