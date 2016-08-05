@@ -88,16 +88,14 @@ aggregate A.variance "city" df -> error "invalid type"
 aggregate A.sd "city" df -> error "invalid type"
 aggregate (concat :: [String] -> String) "city" df -> a dataframe
 
-melt [] [] df -> row-empty dataframe
-melt ["city"] [] df -> row-empty dataframe
-melt [] ["cost"] df -> a dataframe
+melt [] [] df -> error "invalid field name"
+melt ["city"] [] df -> error "invalid field name"
+melt [] ["cost"] df -> error "invalid field name"
+melt ([] :: [FieldName]) ["cost"] df -> a dataframe
 melt ["city"] ["cost"] df -> a dataframe
 melt [1,2,3] [4,5,6] df -> error "invalid field name"
-  -- but GHC error
-melt "city" "cost" df -> error "invalid param type"
-  -- but GHC error
+melt "city" "cost" df -> a dataframe
 melt 123 456 df -> error "invalid param type"
-  -- but GHC error
 melt ["hehehe"] ["hahaha"] df -> row-empty dataframe
 
 -- other TODO

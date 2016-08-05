@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances, IncoherentInstances #-}
+{-# LANGUAGE FlexibleInstances, IncoherentInstances, MultiParamTypeClasses #-}
 
 module Data.DataFrame.Combinator
 ( SortOrder(..)
@@ -32,11 +32,11 @@ class VaridicParam a where
   select :: a -> DataFrame -> DataFrame
   groupby :: a -> DataFrame -> DataFrame
 
-instance VaridicParam String where
+instance VaridicParam FieldName where
   select name df = select [name] df
   groupby name df = groupby [name] df
 
-instance VaridicParam [String] where
+instance VaridicParam [FieldName] where
   select names (DataFrame indices g fields) = DataFrame indices g fields'
     where fields' = P.filter (\(x,_,_) -> elem x names) fields
   groupby names df@(DataFrame indices _ fields) = DataFrame indices g fields
@@ -59,6 +59,48 @@ instance VaridicParam [String] where
 instance {-# OVERLAPPABLE #-} VaridicParam a where
   select _ _ = error "invalid field name"
   groupby _ _ = error "invalid field name"
+
+class VaridicParam2 a b where
+  melt :: a -> b -> DataFrame -> DataFrame
+
+instance VaridicParam2 FieldName FieldName where
+  melt idName varName = melt [idName] [varName]
+
+instance VaridicParam2 FieldName [FieldName] where
+  melt idName varNames = melt [idName] varNames
+
+instance VaridicParam2 [FieldName] FieldName where
+  melt idNames varName = melt idNames [varName]
+
+instance VaridicParam2 [FieldName] [FieldName] where
+  melt ids vars df@(DataFrame indices _ _) = DataFrame indices' DF.emptyGroups fs'
+    where
+      idDf@(DataFrame _ _ idFields) = select ids df
+      varDf@(DataFrame _ _ varFields) = select vars df
+      hDf = height df
+      nIds = width idDf
+      nVars = width varDf
+      indices' = [1..hDf*nVars]
+      inIndices (i, _) = elem i indices
+      mkIndices' = zip indices'
+      idFieldsVals = transpose . concat . replicate nVars . transpose . map transform $ idFields
+        where transform = map snd . P.filter inIndices . getFieldMapping
+      varFieldNames = concat $ map transform varFields
+        where transform = replicate hDf . DF.S . getFieldName
+      varFieldVals = concat $ map transform varFields
+        where transform = map snd . P.filter inIndices . getFieldMapping
+      fs' = idFields' ++ [varNameField, varValField]
+        where
+          idFieldsMapping = if nVars > 0 && hDf > 0
+                               then map mkIndices' idFieldsVals
+                               else replicate nIds []
+          idFields' = map replaceMapping $ zip idFieldsMapping idFields
+            where replaceMapping (mapping, (fn, ft, _)) = (fn, ft, mapping)
+          varNameField = ("variable", (Text, Dimension, Discrete), mkIndices' varFieldNames)
+          varValField = ("value", (Number, Measure, Continuous), mkIndices' varFieldVals)
+
+instance {-# OVERLAPPABLE #-} VaridicParam2 a b where
+  melt _ _ _ = error "invalid field name"
 
 class PolyParam a where
   filter :: FieldName -> (a -> Bool) -> DataFrame -> DataFrame
@@ -194,31 +236,4 @@ last (DataFrame indices g fs) = DataFrame indices' g fs
 tail :: DataFrame -> DataFrame
 tail (DataFrame indices g fs) = DataFrame indices' g fs
   where indices' = P.tail indices
-
-melt :: [FieldName] -> [FieldName] -> DataFrame -> DataFrame
-melt ids vars df@(DataFrame indices _ _) = DataFrame indices' DF.emptyGroups fs'
-  where
-    idDf@(DataFrame _ _ idFields) = select ids df
-    varDf@(DataFrame _ _ varFields) = select vars df
-    hDf = height df
-    nIds = width idDf
-    nVars = width varDf
-    indices' = [1..hDf*nVars]
-    inIndices (i, _) = elem i indices
-    mkIndices' = zip indices'
-    idFieldsVals = transpose . concat . replicate nVars . transpose . map transform $ idFields
-      where transform = map snd . P.filter inIndices . getFieldMapping
-    varFieldNames = concat $ map transform varFields
-      where transform = replicate hDf . DF.S . getFieldName
-    varFieldVals = concat $ map transform varFields
-      where transform = map snd . P.filter inIndices . getFieldMapping
-    fs' = idFields' ++ [varNameField, varValField]
-      where
-        idFieldsMapping = if nVars > 0 && hDf > 0
-                             then map mkIndices' idFieldsVals
-                             else replicate nIds []
-        idFields' = map replaceMapping $ zip idFieldsMapping idFields
-          where replaceMapping (mapping, (fn, ft, _)) = (fn, ft, mapping)
-        varNameField = ("variable", (Text, Dimension, Discrete), mkIndices' varFieldNames)
-        varValField = ("value", (Number, Measure, Continuous), mkIndices' varFieldVals)
 
