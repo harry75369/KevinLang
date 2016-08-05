@@ -3,12 +3,12 @@
 module Data.DataFrame.Combinator
 ( SortOrder(..)
 , VaridicParam(..)
+, VaridicParam2(..)
 , PolyParam(..)
 , sort
 , height
 , width
 , size
-, melt
 , take
 , head
 , init
@@ -26,7 +26,7 @@ import Data.Maybe (fromJust)
 
 data SortOrder = Ascending | Descending
 
-type FieldsMapping = [(Int, [DataValue])]
+type FieldsMapping = [(Index, [DataValue])]
 
 class VaridicParam a where
   select :: a -> DataFrame -> DataFrame
@@ -110,9 +110,9 @@ instance PolyParam String where
   filter fieldName pred = filter' fieldName pred'
     where
       pred' dict i = case M.lookup i dict of
-                  Just (DF.S s) -> pred s
-                  Just (DF.N n) -> error "inconsistent type"
-                  _ -> False
+                       Just (DF.S s) -> pred s
+                       Just (DF.N n) -> error "inconsistent type"
+                       _ -> False
   aggregate op = aggregate' (liftOp op)
     where
       liftOp op = op'
@@ -138,10 +138,7 @@ instance PolyParam Word where
   filter = filterInts
   aggregate = aggregateInts
 
-instance {-# OVERLAPPABLE #-} PolyParam a where
-  filter _ _ _ = error "unsupported type"
-  aggregate _ _ _ = error "unsupported type"
-
+filterReals :: (RealFloat a) => FieldName -> (a -> Bool) -> DataFrame -> DataFrame
 filterReals fieldName pred = filter' fieldName pred'
   where
     pred' dict i = case M.lookup i dict of
@@ -149,6 +146,7 @@ filterReals fieldName pred = filter' fieldName pred'
                      Just (DF.S s) -> error "inconsistent type"
                      _ -> False
 
+aggregateReals :: (RealFloat a) => ([a] -> a) -> FieldName -> DataFrame -> DataFrame
 aggregateReals op = aggregate' (liftOp op)
   where
     liftOp op = op'
@@ -158,6 +156,7 @@ aggregateReals op = aggregate' (liftOp op)
                 collect l (DF.N x) = (toRealFloat x) : l
                 collect l _        = error "invalid type"
 
+filterInts :: (Integral a, Bounded a) => FieldName -> (a -> Bool) -> DataFrame -> DataFrame
 filterInts fieldName pred = filter' fieldName pred'
   where
     pred' dict i = case M.lookup i dict of
@@ -165,6 +164,7 @@ filterInts fieldName pred = filter' fieldName pred'
                      Just (DF.S s) -> error "inconsistent type"
                      _ -> False
 
+aggregateInts :: (Integral a, Bounded a) => ([a] -> a) -> FieldName -> DataFrame -> DataFrame
 aggregateInts op = aggregate' (liftOp op)
   where
     liftOp op = op'
@@ -174,6 +174,7 @@ aggregateInts op = aggregate' (liftOp op)
                 collect l (DF.N x) = (fromJust . toBoundedInteger $ x) : l
                 collect l _        = error "invalid type"
 
+filter' :: FieldName -> (M.HashMap Index DataValue -> Index -> Bool) -> DataFrame -> DataFrame
 filter' fieldName pred' df@(DataFrame indices _ fs) = DataFrame indices' DF.emptyGroups fs
   where
     dict = case select fieldName df of
@@ -181,6 +182,7 @@ filter' fieldName pred' df@(DataFrame indices _ fs) = DataFrame indices' DF.empt
       _ -> M.empty
     indices' = P.filter (pred' dict) indices
 
+aggregate' :: ([DataValue] -> DataValue) -> FieldName -> DataFrame -> DataFrame
 aggregate' op' fieldName df@(DataFrame indices (ns,gs) fs) = DataFrame indices' DF.emptyGroups fs'
   where
     DataFrame _ _ idFields = select ns df
