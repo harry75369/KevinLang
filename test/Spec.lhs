@@ -66,10 +66,8 @@ C.filter "city" (== "beijing") df -> a dataframe
 C.filter "city" (== 100) df -> error "inconsistent type"
 C.filter "cost" (> 500) df -> a dataframe
 C.filter "cost" (== "hangzhou") -> error "inconsistent type"
-C.filter "hehehe" (== "beijing") df -> a dataframe
-  -- but row-empty dataframe
-C.filter "hehehe" (> 500) df -> a dataframe
-  -- but row-empty dataframe
+C.filter "hehehe" (== "beijing") df -> error "no such field"
+C.filter "hehehe" (> 500) df -> error "no such field"
 
 sort "city" Ascending df -> a dataframe
 sort "cost" Descending df -> a dataframe

@@ -179,7 +179,7 @@ filter' fieldName pred' df@(DataFrame indices _ fs) = DataFrame indices' DF.empt
   where
     dict = case select fieldName df of
       DataFrame _ _ [field] -> M.fromList . getFieldMapping $ field
-      _ -> M.empty
+      _ -> error "no such field"
     indices' = P.filter (pred' dict) indices
 
 aggregate' :: ([DataValue] -> DataValue) -> FieldName -> DataFrame -> DataFrame
