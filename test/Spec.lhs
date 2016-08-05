@@ -82,8 +82,7 @@ aggregate A.sd "cost" df -> a dataframe
 aggregate Prelude.sum "city" df -> error "invalid type"
 aggregate A.sum "city" df -> error "invalid type"
 aggregate A.mean "city" df -> error "invalid type"
-aggregate A.count "city" df -> a dataframe
-  -- but error "invalid type"
+aggregate A.count "city" df -> error "invalid type"
 aggregate A.variance "city" df -> error "invalid type"
 aggregate A.sd "city" df -> error "invalid type"
 aggregate (concat :: [String] -> String) "city" df -> a dataframe
