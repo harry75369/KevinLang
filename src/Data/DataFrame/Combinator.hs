@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleInstances, IncoherentInstances #-}
 
 module Data.DataFrame.Combinator
 ( SortOrder(..)
@@ -43,6 +43,7 @@ instance VaridicParam [String] where
     where
       DataFrame _ _ fs = select names df
       merge :: [FieldMapping] -> FieldsMapping
+      merge [] = []
       merge mappings = zip [1..maxIdx] values
         where
           maxIdxs = map (maximum . map fst) mappings

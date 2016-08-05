@@ -40,23 +40,18 @@ select "hehehe" df -> column-empty dataframe
 select ["city", "hehehe"] df -> a dataframe
 select 100 df -> error "invalid field name"
 select [100, 200] df -> error "invalid field name"
-  -- but GHC error
 select ["city", 100] df -> GHC error
-select [] df -> column-empty dataframe
-  -- but GHC error
+select [] df -> error "invalid field name"
 select ([] :: [FieldName]) df -> column-empty dataframe
 
 groupby "city" df -> a dataframe
 groupby ["city", "cost"] df -> a dataframe
 groupby "hehehe" df -> a dataframe
-  -- but error "Prelude.foldl1: empty list"
 groupby ["city", "hehehe"] df -> a dataframe
 groupby 100 df -> error "invalid field name"
 groupby [100, 200] df -> error "invalid field name"
-  -- but GHC error
 groupby ["city", 100] df -> GHC error
-groupby [] df -> a dataframe
-  -- but GHC error
+groupby [] df -> error "invalid field name"
 groupby ([] :: [String]) df -> a dataframe
 
 C.filter "city" (== "beijing") df -> a dataframe
