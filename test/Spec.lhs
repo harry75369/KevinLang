@@ -103,6 +103,9 @@ melt ["hehehe"] ["hahaha"] df -> row-empty dataframe
 -- [DONE] 2. fix sort combinator to be consistent with results of row-mutating combinators (take, head, init, tail, last, filter)
 -- [DONE] 3. fix aggregate combinator to be consistent with result of sort combinator
 -- 4. find out possibly duplicate fields problem
+--   a) `select ["city","city"]` is ok but will result in duplicated `city` fields
+--   b) currently not able to select multiple duplicated fields with single field name
+--   c) and this will affect `select`'s users including aggregate, filter and sort, and possibly melt and groupby
 -- [DONE] 5. fix melt combinator to be consistent with result of sort combinator
 -- [DONE] 6. fix groupby combinator to be consistent with result of sort combinator
 -- 7. sort by group
