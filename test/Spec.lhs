@@ -99,7 +99,7 @@ melt ["hehehe"] ["hahaha"] df -> row-empty dataframe
 
 -- other TODO
 -- [DONE] 1. make order of fields consistent with combinators' params (select, groupby, melt)
--- 2. fix sort comiboator to be consistent with results of row-mutating combinators (take, head, init, tail, last, filter)
+-- [DONE] 2. fix sort combinator to be consistent with results of row-mutating combinators (take, head, init, tail, last, filter)
 -- 3. fix aggregate combinator to be consistent with result of sort combinator
 -- 4. find out possibly duplicate fields problem
 

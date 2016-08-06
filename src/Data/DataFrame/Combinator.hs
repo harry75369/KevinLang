@@ -67,7 +67,6 @@ instance {-# OVERLAPPABLE #-} VaridicParam a where
   select _ _ = error "invalid field name"
   groupby _ _ = error "invalid field name"
 
-
 class VaridicParam2 a b where
   melt :: a -> b -> DataFrame -> DataFrame
 
@@ -214,8 +213,9 @@ sort fieldName Descending df@(DataFrame indices g fs) = DataFrame (reverse indic
 sort fieldName Ascending  df@(DataFrame indices g fs) = DataFrame indices' g fs
   where
     sorter (_,v0) (_,v1) = compare v0 v1
+    inIndices (i, _) = elem i indices
     indices' = case select fieldName df of
-      DataFrame _ _ [field] -> map fst $ sortBy sorter $ getFieldMapping field
+      DataFrame _ _ [field] -> map fst $ sortBy sorter $ P.filter inIndices $ getFieldMapping field
       _ -> indices
 
 height :: DataFrame -> Int
