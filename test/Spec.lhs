@@ -94,7 +94,7 @@ melt ([] :: [FieldName]) ["cost"] df -> a dataframe
 melt ["city"] ["cost"] df -> a dataframe
 melt [1,2,3] [4,5,6] df -> error "invalid field name"
 melt "city" "cost" df -> a dataframe
-melt 123 456 df -> error "invalid param type"
+melt 123 456 df -> error "invalid field name"
 melt ["hehehe"] ["hahaha"] df -> row-empty dataframe
 
 -- other TODO
