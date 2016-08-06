@@ -20,3 +20,6 @@ variance l = mean $ map (sqr . ((-) e)) l
 sd :: (RealFloat a) => [a] -> a
 sd = sqrt . variance
 
+concat :: [String] -> String
+concat = Prelude.concat
+
