@@ -200,8 +200,13 @@ aggregate' op' fieldName df@(DataFrame indices (ns,gs) fs) = DataFrame indices' 
     mergeFieldRow op field@(fieldName, fieldTraits, mapping) = (fieldName, fieldTraits, mapping')
       where
         gs' = if null gs then [indices] else gs
+        dict = M.fromList mapping
         valGroups = map getGroupVal gs'
-          where getGroupVal g = map snd $ P.filter (\(i,v) -> elem i g) mapping
+          where
+            getGroupVal = flip foldl [] $
+              \acc i -> case M.lookup i dict of
+                          Just v -> v : acc
+                          Nothing -> acc
         mapping' = zip indices' (map op valGroups)
     idFields' = map (mergeFieldRow P.head) idFields
     valField' = mergeFieldRow op' valField
