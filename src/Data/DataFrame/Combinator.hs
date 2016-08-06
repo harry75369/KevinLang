@@ -61,7 +61,8 @@ instance VaridicParam [FieldName] where
       groups = groupOn snd $ sortOn snd $ merge $ map getFieldMapping fs
       groups' = P.filter (not . null) $ map (P.filter inIndices) groups
         where inIndices (i, _) = elem i indices
-      g = (names, map (map fst) groups')
+      reorderByIndices is = P.filter (\i -> elem i is) indices
+      g = (names, map (reorderByIndices . map fst) groups')
 
 instance {-# OVERLAPPABLE #-} VaridicParam a where
   select _ _ = error "invalid field name"
@@ -88,16 +89,18 @@ instance VaridicParam2 [FieldName] [FieldName] where
       nIds = width idDf
       nVars = width varDf
       indices' = [1..hDf*nVars]
-      inIndices (i, _) = elem i indices
-      mkIndices' = zip indices'
+      collectValsByIndices dict = foldr (\i acc -> case M.lookup i dict of
+                                                     Just val -> val : acc
+                                                     Nothing -> acc) [] indices
       idFieldsVals = transpose . concat . replicate nVars . transpose . map transform $ idFields
-        where transform = map snd . P.filter inIndices . getFieldMapping
+        where transform = collectValsByIndices . M.fromList . getFieldMapping
       varFieldNames = concat $ map transform varFields
         where transform = replicate hDf . DF.S . getFieldName
       varFieldVals = concat $ map transform varFields
-        where transform = map snd . P.filter inIndices . getFieldMapping
+        where transform = collectValsByIndices . M.fromList . getFieldMapping
       fs' = idFields' ++ [varNameField, varValField]
         where
+          mkIndices' = zip indices'
           idFieldsMapping = if nVars > 0 && hDf > 0
                                then map mkIndices' idFieldsVals
                                else replicate nIds []
@@ -125,9 +128,9 @@ instance PolyParam String where
       liftOp op = op'
         where
           op' vals = DF.S $ op vals'
-            where vals' = foldl collect [] vals
-                  collect l (DF.S x) = x : l
-                  collect l _        = error "invalid type"
+            where vals' = foldr collect [] vals
+                  collect (DF.S x) l = x : l
+                  collect _        _ = error "invalid type"
 
 instance PolyParam Double where
   filter = filterReals
@@ -159,9 +162,9 @@ aggregateReals op = aggregate' (liftOp op)
     liftOp op = op'
       where
         op' vals = DF.N . fromFloatDigits $ op vals'
-          where vals' = foldl collect [] vals
-                collect l (DF.N x) = (toRealFloat x) : l
-                collect l _        = error "invalid type"
+          where vals' = foldr collect [] vals
+                collect (DF.N x) l = (toRealFloat x) : l
+                collect _        _ = error "invalid type"
 
 filterInts :: (Integral a, Bounded a) => FieldName -> (a -> Bool) -> DataFrame -> DataFrame
 filterInts fieldName pred = filter' fieldName pred'
@@ -177,9 +180,9 @@ aggregateInts op = aggregate' (liftOp op)
     liftOp op = op'
       where
         op' vals = DF.N . fromInteger . toInteger $ op vals'
-          where vals' = foldl collect [] vals
-                collect l (DF.N x) = (fromJust . toBoundedInteger $ x) : l
-                collect l _        = error "invalid type"
+          where vals' = foldr collect [] vals
+                collect (DF.N x) l = (fromJust . toBoundedInteger $ x) : l
+                collect _        _ = error "invalid type"
 
 filter' :: FieldName -> (M.HashMap Index DataValue -> Index -> Bool) -> DataFrame -> DataFrame
 filter' fieldName pred' df@(DataFrame indices _ fs) = DataFrame indices' DF.emptyGroups fs
@@ -193,7 +196,10 @@ aggregate' :: ([DataValue] -> DataValue) -> FieldName -> DataFrame -> DataFrame
 aggregate' op' fieldName df@(DataFrame indices (ns,gs) fs) = DataFrame indices' DF.emptyGroups fs'
   where
     DataFrame _ _ idFields = select ns df
-    DataFrame _ _ [valField] = select fieldName df
+    DataFrame _ _ valFields = checkNullField $ select fieldName df
+      where checkNullField df
+              | width df == 0 = error "no such field"
+              | otherwise = df
     indices'
       | null gs = [1]
       | otherwise = [1..P.length gs]
@@ -203,14 +209,14 @@ aggregate' op' fieldName df@(DataFrame indices (ns,gs) fs) = DataFrame indices' 
         dict = M.fromList mapping
         valGroups = map getGroupVal gs'
           where
-            getGroupVal = flip foldl [] $
-              \acc i -> case M.lookup i dict of
+            getGroupVal = flip foldr [] $
+              \i acc -> case M.lookup i dict of
                           Just v -> v : acc
                           Nothing -> acc
         mapping' = zip indices' (map op valGroups)
     idFields' = map (mergeFieldRow P.head) idFields
-    valField' = mergeFieldRow op' valField
-    fs' = idFields' ++ [valField']
+    valFields' = map (mergeFieldRow op') valFields
+    fs' = idFields' ++ valFields'
 
 sort :: FieldName -> SortOrder -> DataFrame -> DataFrame
 sort fieldName Descending df@(DataFrame indices g fs) = DataFrame (reverse indices') g fs

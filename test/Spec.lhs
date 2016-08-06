@@ -86,6 +86,7 @@ aggregate A.count "city" df -> error "invalid type"
 aggregate A.variance "city" df -> error "invalid type"
 aggregate A.sd "city" df -> error "invalid type"
 aggregate (concat :: [String] -> String) "city" df -> a dataframe
+aggregate A.sum "hehehe" df -> error "no such field"
 
 melt [] [] df -> error "invalid field name"
 melt ["city"] [] df -> error "invalid field name"
@@ -102,4 +103,8 @@ melt ["hehehe"] ["hahaha"] df -> row-empty dataframe
 -- [DONE] 2. fix sort combinator to be consistent with results of row-mutating combinators (take, head, init, tail, last, filter)
 -- [DONE] 3. fix aggregate combinator to be consistent with result of sort combinator
 -- 4. find out possibly duplicate fields problem
+-- [DONE] 5. fix melt combinator to be consistent with result of sort combinator
+-- [DONE] 6. fix groupby combinator to be consistent with result of sort combinator
+-- 7. sort by group
+-- 8. aggregate v.s. transform
 
