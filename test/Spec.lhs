@@ -2,6 +2,13 @@
 > import Data.DataFrame.Combinator as C
 > import Data.DataFrame.Aggregator as A
 
+-- TODO use quickcheck
+testTitleTree = do
+  let tree = TitleTree ["gender","city"] [TitleChild (Data.DataFrame.S "F") [TitleChild (Data.DataFrame.S "bj") [], TitleChild (Data.DataFrame.S "sh") []], TitleChild (Data.DataFrame.S "M") [TitleChild (Data.DataFrame.S "bj") [], TitleChild (Data.DataFrame.S "sh") [], TitleChild (Data.DataFrame.S "hz") []]]
+  getChildrenCount $ head $ getTitleChildren tree -> 2
+  getChildrenCount $ head $ drop 1 $ getTitleChildren tree -> 3
+  getChildrenCount tree -> 5
+
 > main :: IO ()
 > main = do
 >   df <- fromCsvFile "simple.csv"

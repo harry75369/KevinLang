@@ -6,6 +6,9 @@ module Data.DataFrame.Combinator
 , VaridicParam2(..)
 , PolyParam(..)
 , sort
+, stack
+, unstack
+, cast
 , height
 , width
 , size
@@ -21,7 +24,8 @@ import Prelude hiding (take, head, init, last, tail, length, filter)
 import qualified Data.HashMap.Strict as M
 import Data.DataFrame as DF
 import Data.Scientific
-import Data.List (sortBy, sortOn, transpose, groupBy)
+import Data.List (sortBy, sortOn, transpose, groupBy, delete)
+import qualified Data.List as L
 import Data.Maybe (fromJust)
 
 data SortOrder = Ascending | Descending
@@ -37,7 +41,7 @@ instance VaridicParam FieldName where
   groupby name df = groupby [name] df
 
 instance VaridicParam [FieldName] where
-  select names (DataFrame indices g fields) = DataFrame indices g fields'
+  select names (DataFrame indices g _ fields) = DataFrame indices g Nothing fields'
     where
       reorderFields fns fs = fs'
         where
@@ -46,9 +50,9 @@ instance VaridicParam [FieldName] where
                                     Just field -> field : acc
                                     Nothing -> acc) [] fns
       fields' = reorderFields names fields
-  groupby names df@(DataFrame indices _ fields) = DataFrame indices g fields
+  groupby names df@(DataFrame indices _ _ fields) = DataFrame indices g Nothing fields
     where
-      DataFrame _ _ fs = select names df
+      DataFrame _ _ _ fs = select names df
       merge :: [FieldMapping] -> FieldsMapping
       merge [] = []
       merge mappings = zip [1..maxIdx] values
@@ -81,10 +85,10 @@ instance VaridicParam2 [FieldName] FieldName where
   melt idNames varName = melt idNames [varName]
 
 instance VaridicParam2 [FieldName] [FieldName] where
-  melt ids vars df@(DataFrame indices _ _) = DataFrame indices' DF.emptyGroups fs'
+  melt ids vars df@(DataFrame indices _ _ _) = DataFrame indices' DF.emptyGroups Nothing fs'
     where
-      idDf@(DataFrame _ _ idFields) = select ids df
-      varDf@(DataFrame _ _ varFields) = select vars df
+      idDf@(DataFrame _ _ _ idFields) = select ids df
+      varDf@(DataFrame _ _ _ varFields) = select vars df
       hDf = height df
       nIds = width idDf
       nVars = width varDf
@@ -185,18 +189,18 @@ aggregateInts op = aggregate' (liftOp op)
                 collect _        _ = error "invalid type"
 
 filter' :: FieldName -> (M.HashMap Index DataValue -> Index -> Bool) -> DataFrame -> DataFrame
-filter' fieldName pred' df@(DataFrame indices _ fs) = DataFrame indices' DF.emptyGroups fs
+filter' fieldName pred' df@(DataFrame indices _ _ fs) = DataFrame indices' DF.emptyGroups Nothing fs
   where
     dict = case select fieldName df of
-      DataFrame _ _ [field] -> M.fromList . getFieldMapping $ field
+      DataFrame _ _ _ [field] -> M.fromList . getFieldMapping $ field
       _ -> error "no such field"
     indices' = P.filter (pred' dict) indices
 
 aggregate' :: ([DataValue] -> DataValue) -> FieldName -> DataFrame -> DataFrame
-aggregate' op' fieldName df@(DataFrame indices (ns,gs) fs) = DataFrame indices' DF.emptyGroups fs'
+aggregate' op' fieldName df@(DataFrame indices (ns,gs) _ fs) = DataFrame indices' DF.emptyGroups Nothing fs'
   where
-    DataFrame _ _ idFields = select ns df
-    DataFrame _ _ valFields = checkNullField $ select fieldName df
+    DataFrame _ _ _ idFields = select ns df
+    DataFrame _ _ _ valFields = checkNullField $ select fieldName df
       where checkNullField df
               | width df == 0 = error "no such field"
               | otherwise = df
@@ -219,42 +223,87 @@ aggregate' op' fieldName df@(DataFrame indices (ns,gs) fs) = DataFrame indices' 
     fs' = idFields' ++ valFields'
 
 sort :: FieldName -> SortOrder -> DataFrame -> DataFrame
-sort fieldName Descending df@(DataFrame indices g fs) = DataFrame (reverse indices') g fs
-  where DataFrame indices' _ _ = sort fieldName Ascending df
-sort fieldName Ascending  df@(DataFrame indices g fs) = DataFrame indices' g fs
+sort fieldName Descending df@(DataFrame indices g t fs) = DataFrame (reverse indices') g Nothing fs
+  where DataFrame indices' _ _ _ = sort fieldName Ascending df
+sort fieldName Ascending  df@(DataFrame indices g t fs) = DataFrame indices' g Nothing fs
   where
     sorter (_,v0) (_,v1) = compare v0 v1
     inIndices (i, _) = elem i indices
     indices' = case select fieldName df of
-      DataFrame _ _ [field] -> map fst $ sortBy sorter $ P.filter inIndices $ getFieldMapping field
+      DataFrame _ _ _ [field] -> map fst $ sortBy sorter $ P.filter inIndices $ getFieldMapping field
       _ -> indices
 
+stack :: FieldName -> DataFrame -> DataFrame
+stack fieldName (DataFrame indices g Nothing fs) = error "not in pivot form"
+stack fieldName (DataFrame indices g (Just (rowTitleTree, colTitleTree)) fs) = result
+  where
+    fns = map getFieldName fs
+    rowFieldNames = getTitleFields rowTitleTree
+    colFieldNames = getTitleFields colTitleTree
+    result
+      | fieldName `elem` colFieldNames, fieldName `elem` fns
+      = DataFrame indices g (Just (rowTitleTree', colTitleTree')) fs
+      | otherwise = error "unable to stack"
+      where
+        rowTitleTree' = makeTitleTree $ getFieldsByNames (rowFieldNames ++ [fieldName]) fs
+        colTitleTree' = makeTitleTree $ getFieldsByNames (delete fieldName colFieldNames) fs
+
+unstack :: FieldName -> DataFrame -> DataFrame
+unstack fieldName (DataFrame indices g Nothing fs) = error "not in pivot form"
+unstack fieldName (DataFrame indices g (Just (rowTitleTree, colTitleTree)) fs) = result
+  where
+    fns = map getFieldName fs
+    rowFieldNames = getTitleFields rowTitleTree
+    colFieldNames = getTitleFields colTitleTree
+    result
+      | fieldName `elem` rowFieldNames, fieldName `elem` fns
+      = DataFrame indices g (Just (rowTitleTree', colTitleTree')) fs
+      | otherwise = error "unable to unstack"
+      where
+        rowTitleTree' = makeTitleTree $ getFieldsByNames (delete fieldName rowFieldNames) fs
+        colTitleTree' = makeTitleTree $ getFieldsByNames (colFieldNames ++ [fieldName]) fs
+
+cast :: (PolyParam a) => [FieldName] -> [FieldName] -> ([a] -> a) -> FieldName -> DataFrame -> DataFrame
+cast rowFieldNames colFieldNames agg valFieldName df =
+  let DataFrame indices g _ fs = aggregate agg valFieldName . groupby (rowFieldNames ++ colFieldNames) $ df
+      rowTitleTree = makeTitleTree $ getFieldsByNames rowFieldNames fs
+      colTitleTree = makeTitleTree $ getFieldsByNames colFieldNames fs
+   in if or [i `elem` colFieldNames | i <- rowFieldNames]
+         then error "conficted field names"
+         else DataFrame indices g (Just (rowTitleTree, colTitleTree)) fs
+
 height :: DataFrame -> Int
-height (DataFrame indices _ _) = P.length indices
+height (DataFrame indices _ Nothing _) = P.length indices
+height (DataFrame _ _ (Just (rowTitleTree, _)) _)
+  | null (getTitleFields rowTitleTree) = 1
+  | otherwise = getChildrenCount rowTitleTree
 
 width :: DataFrame -> Int
-width (DataFrame _ _ fs) = P.length fs
+width (DataFrame _ _ Nothing fs) = P.length fs
+width (DataFrame _ _ (Just (_, colTitleTree)) _)
+  | null (getTitleFields colTitleTree) = 1
+  | otherwise = getChildrenCount colTitleTree
 
 size :: DataFrame -> (Int, Int)
 size = (,) <$> width <*> height
 
 take :: Int -> DataFrame -> DataFrame
-take n (DataFrame indices g fs) = DataFrame indices' g fs
+take n (DataFrame indices g t fs) = DataFrame indices' g Nothing fs
   where indices' = P.take n indices
 
 head :: DataFrame -> DataFrame
-head (DataFrame indices g fs) = DataFrame indices' g fs
+head (DataFrame indices g t fs) = DataFrame indices' g Nothing fs
   where indices' = [P.head indices]
 
 init :: DataFrame -> DataFrame
-init (DataFrame indices g fs) = DataFrame indices' g fs
+init (DataFrame indices g t fs) = DataFrame indices' g Nothing fs
   where indices' = P.init indices
 
 last :: DataFrame -> DataFrame
-last (DataFrame indices g fs) = DataFrame indices' g fs
+last (DataFrame indices g t fs) = DataFrame indices' g Nothing fs
   where indices' = [P.last indices]
 
 tail :: DataFrame -> DataFrame
-tail (DataFrame indices g fs) = DataFrame indices' g fs
+tail (DataFrame indices g t fs) = DataFrame indices' g Nothing fs
   where indices' = P.tail indices
 
