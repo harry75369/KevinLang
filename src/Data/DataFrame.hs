@@ -25,12 +25,13 @@ module Data.DataFrame
 , getFieldMapping
 , getFieldsByNames
 , makeTitleTree
-, debugPivot
+, fromPivot
+, toPivot
 ) where
 
 import CsvParser
 import Data.Char (isSpace)
-import Data.List (transpose, nub, sort)
+import Data.List (transpose, nub, sort, delete)
 import Text.Megaparsec
 import Data.Scientific
 import qualified Data.HashMap.Strict as M
@@ -258,6 +259,15 @@ makeTitleTree fs = TitleTree fns (makeTitleChildren fms)
         indices = map fst $ filter (\(i,v) -> v == val) m
         ms' = map (filter (\(i,v) -> i `elem` indices)) ms
 
-debugPivot :: DataFrame -> DataFrame
-debugPivot (DataFrame indices g _ fs) = DataFrame indices g Nothing fs
+fromPivot :: DataFrame -> DataFrame
+fromPivot (DataFrame indices g _ fs) = DataFrame indices g Nothing fs
+
+toPivot :: FieldName -> DataFrame -> DataFrame
+toPivot fieldName (DataFrame indices g _ fs)
+  | fieldName `elem` fns = DataFrame indices g (Just (rowTitleTree, colTitleTree)) fs
+  | otherwise = error "please provide correct field to pivot"
+  where
+    fns = map getFieldName fs
+    rowTitleTree = makeTitleTree $ getFieldsByNames (delete fieldName fns) fs
+    colTitleTree = makeTitleTree []
 

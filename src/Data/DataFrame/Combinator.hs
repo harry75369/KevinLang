@@ -264,13 +264,13 @@ unstack fieldName (DataFrame indices g (Just (rowTitleTree, colTitleTree)) fs) =
         colTitleTree' = makeTitleTree $ getFieldsByNames (colFieldNames ++ [fieldName]) fs
 
 cast :: (PolyParam a) => [FieldName] -> [FieldName] -> ([a] -> a) -> FieldName -> DataFrame -> DataFrame
-cast rowFieldNames colFieldNames agg valFieldName df =
-  let DataFrame indices g _ fs = aggregate agg valFieldName . groupby (rowFieldNames ++ colFieldNames) $ df
-      rowTitleTree = makeTitleTree $ getFieldsByNames rowFieldNames fs
-      colTitleTree = makeTitleTree $ getFieldsByNames colFieldNames fs
-   in if or [i `elem` colFieldNames | i <- rowFieldNames]
-         then error "conficted field names"
-         else DataFrame indices g (Just (rowTitleTree, colTitleTree)) fs
+cast rowFieldNames colFieldNames agg valFieldName
+  | or [i `elem` colFieldNames | i <- rowFieldNames] = error "conflicted field names"
+  | valFieldName `elem` allFieldNames = error "conflicted field names"
+  | otherwise = unstacks . (toPivot valFieldName) . (aggregate agg valFieldName) . (groupby allFieldNames)
+  where
+    allFieldNames = rowFieldNames ++ colFieldNames
+    unstacks = foldl (.) id $ (map unstack) . reverse $ colFieldNames
 
 height :: DataFrame -> Int
 height (DataFrame indices _ Nothing _) = P.length indices
