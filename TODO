@@ -1,0 +1,2 @@
+ * `aggregate` support both PolyParam and VaridicParam
+ * dataframe combination combinators such as `join`

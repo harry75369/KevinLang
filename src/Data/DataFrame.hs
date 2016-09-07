@@ -30,7 +30,7 @@ module Data.DataFrame
 
 import CsvParser
 import Data.Char (isSpace)
-import Data.List (transpose, nub)
+import Data.List (transpose, nub, sort)
 import Text.Megaparsec
 import Data.Scientific
 import qualified Data.HashMap.Strict as M
@@ -147,7 +147,9 @@ instance Show DataFrame where
           iter [] _ = []
           iter (n:ns) children = thisLine : iter ns children'
             where
-              makeValue c@(TitleChild dataValue indices children) = show dataValue : replicate (getChildrenCount c - 1) ""
+              showValue (Data.DataFrame.N n) = formatScientific Fixed (Just 0) n
+              showValue dv                   = show dv
+              makeValue c@(TitleChild dataValue indices children) = showValue dataValue : replicate (getChildrenCount c - 1) ""
               thisLine = n : (concat $ map makeValue children)
               children' = concat $ map getTitleChildren children
 
@@ -249,7 +251,7 @@ makeTitleTree fs = TitleTree fns (makeTitleChildren fms)
     makeTitleChildren [] = []
     makeTitleChildren (m:ms) = map (makeTitleChild m ms) vals
       where
-        vals = nub $ map snd m
+        vals = sort . nub $ map snd m
     makeTitleChild :: FieldMapping -> [FieldMapping] -> DataValue -> TitleChild
     makeTitleChild m ms val = TitleChild val indices (makeTitleChildren ms')
       where
