@@ -30,7 +30,7 @@ module Data.DataFrame
 ) where
 
 import CsvParser
-import Data.Char (isSpace)
+import Data.Char (isSpace, isLatin1)
 import Data.List (transpose, nub, sort, delete)
 import Text.Megaparsec
 import Data.Scientific
@@ -93,10 +93,14 @@ instance Show DataValue where
 showLines ls = concat $ map (showLine widths) ls
   where
     columns = transpose ls
-    widths = map maximum $ map (map length) columns
-    showLine (w:_)  (x:[]) = (space $ w - length x + 2) ++ x ++ "\n"
-    showLine (w:ws) (x:xs) = (space $ w - length x + 2) ++ x ++ showLine ws xs
+    widths = map maximum $ map (map strLength) columns
+    showLine (w:_)  (x:[]) = (space $ w - strLength x + 2) ++ x ++ "\n"
+    showLine (w:ws) (x:xs) = (space $ w - strLength x + 2) ++ x ++ showLine ws xs
     space = flip replicate ' '
+    strLength [] = 0
+    strLength (c:cs)
+      | isLatin1 c = 1 + strLength cs
+      | otherwise  = 2 + strLength cs
 
 instance Show DataFrame where
   show (DataFrame _       _ _       []    ) = "(EMPTY DATAFRAME)\n"
