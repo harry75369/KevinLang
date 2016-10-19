@@ -137,7 +137,7 @@ instance Show DataFrame where
         where
           getVal' [] = Data.DataFrame.Empty
           getVal' [idx] = snd $ head $ filter (\(i,v) -> i == idx) valFieldMapping
-          getVal' _ = error "invalid data"
+          getVal' _ = error "invalid data (many values for the same index)"
 
       addTitlePadding :: Int -> [String] -> [String]
       addTitlePadding n (x:xs) = x : (replicate n "") ++ xs
