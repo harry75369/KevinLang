@@ -13,14 +13,17 @@ module Data.DataFrame.Combinator
 , width
 , size
 , take
+, drop
 , head
 , init
 , last
 , tail
+, append
+, join
 ) where
 
 import qualified Prelude as P
-import Prelude hiding (take, head, init, last, tail, length, filter)
+import Prelude hiding (take, drop, head, init, last, tail, length, filter)
 import qualified Data.HashMap.Strict as M
 import Data.DataFrame as DF
 import Data.Scientific
@@ -291,6 +294,10 @@ take :: Int -> DataFrame -> DataFrame
 take n (DataFrame indices g t fs) = DataFrame indices' g Nothing fs
   where indices' = P.take n indices
 
+drop :: Int -> DataFrame -> DataFrame
+drop n (DataFrame indices g t fs) = DataFrame indices' g Nothing fs
+  where indices' = P.drop n indices
+
 head :: DataFrame -> DataFrame
 head (DataFrame indices g t fs) = DataFrame indices' g Nothing fs
   where indices' = [P.head indices]
@@ -307,3 +314,47 @@ tail :: DataFrame -> DataFrame
 tail (DataFrame indices g t fs) = DataFrame indices' g Nothing fs
   where indices' = P.tail indices
 
+append :: DataFrame -> DataFrame -> DataFrame
+append (DataFrame i0 g0 t0 fs0) (DataFrame i1 g1 t1 fs1)
+  | isConsistent (sortOn getFieldName fs0) (sortOn getFieldName fs1)
+  = DataFrame indices DF.emptyGroups Nothing (mergeFields fs0 fs1)
+  | otherwise = error "Can't append inconsistent data frames."
+  where
+    isConsistent [] [] = True
+    isConsistent ((fn0, ft0, _):fs0) ((fn1, ft1, _):fs1)
+      | fn0 == fn1, ft0 == ft1 = isConsistent fs0 fs1
+      | otherwise = False
+    indices = [1..((P.length i0)+(P.length i1))]
+    mergeFields :: [Field] -> [Field] -> [Field]
+    mergeFields [] _ = []
+    mergeFields ((fn,ft,fm):fs) fs' = f' : mergeFields fs fs'
+      where
+        fm' = getFieldMapping . P.head $ P.filter (\f -> getFieldName f == fn) fs'
+        f' = (fn, ft, mergeFieldMapping fm fm')
+    mergeFieldMapping fm0 fm1 = zip indices (v0 ++ v1)
+      where
+        v0 = map snd $ P.filter (\(i,v) -> i `elem` i0) fm0
+        v1 = map snd $ P.filter (\(i,v) -> i `elem` i1) fm1
+
+join :: DataFrame -> DataFrame -> DataFrame
+join (DataFrame i0 g0 t0 fs0) (DataFrame i1 g1 t1 fs1)
+  | P.length i0 == P.length i1
+  = DataFrame indices DF.emptyGroups Nothing (mergeFields fs0 fs1)
+  | otherwise = error "Can't join inconsistent data frames."
+  where
+    indices = [1..(P.length i0)]
+    getValsByIndices :: Indices -> FieldMapping -> [DataValue]
+    getValsByIndices [] _ = []
+    getValsByIndices (i:is) mapping = v : getValsByIndices is mapping
+      where v = snd . P.head $ P.filter (\(i',v) -> i == i') mapping
+    mergeFields :: [Field] -> [Field] -> [Field]
+    mergeFields fs0 fs1 = fs
+      where
+        vals0 :: [[DataValue]]
+        vals0 = map (getValsByIndices i0) $ map getFieldMapping fs0
+        vals1 :: [[DataValue]]
+        vals1 = map (getValsByIndices i1) $ map getFieldMapping fs1
+        mappings :: [FieldMapping]
+        mappings = map (zip indices) (vals0 ++ vals1)
+        fs = zipWith updateFieldMapping (fs0 ++ fs1) mappings
+    updateFieldMapping (fn,ft,fm) fm' = (fn, ft, fm')
