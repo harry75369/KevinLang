@@ -35,6 +35,7 @@ import Data.List (transpose, nub, sort, delete)
 import Text.Megaparsec
 import Data.Scientific
 import qualified Data.HashMap.Strict as M
+import Debug.Trace
 
 data TitleTree = TitleTree [FieldName] [TitleChild] deriving Show
 data TitleChild = TitleChild DataValue Indices [TitleChild] deriving Show
@@ -227,6 +228,12 @@ makeField indices (fieldName, vals) = (fieldName, traits, mappings)
       = (Number, Dimension, Discrete)
       | all isCsvNumber vals
       = (Number, Measure, Continuous)
+      -- | any isCsvString vals
+      -- = trace ("\nWarning: missing data in field " ++ fieldName) (Text, Dimension, Discrete)
+      -- | any isCsvNumber vals
+      -- = trace ("\nWarning: missing data in field " ++ fieldName) (Number, Measure, Continuous)
+      -- | otherwise
+      -- = error "\nError: Unknown data"
       | otherwise
       = error "\nError: Invalid data (possibly missing values)"
     mappings = zip indices $ map convert vals
