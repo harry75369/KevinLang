@@ -19,10 +19,18 @@ library
                      , Data.DataFrame
                      , Data.DataFrame.Aggregator
                      , Data.DataFrame.Combinator
+                     , Language.Builder
+                     , Language.Babel
+                     , Language.Kevin
+                     , Language.Kevin.Coords
+                     , Language.Kevin.Marks
+                     , Language.Kevin.Scales
+                     , Language.Kevin.Visuals
   build-depends:       base >= 4.7 && < 5
                      , scientific
                      , megaparsec >= 5.0
                      , unordered-containers
+                     , mtl
   default-language:    Haskell2010
 
 executable kevin-exe
